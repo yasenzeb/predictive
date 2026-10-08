@@ -1,6 +1,6 @@
 /**
  * Vercel Serverless Cron Telemetry & Automated Emergency Alert Engine
- * Path: /api/cron-telemetry
+ * Path: /api/cron-telemetry (v2.1)
  *
  * Runs background machinery telemetry monitoring server-side on Vercel.
  * Simulates rotating machinery dynamics, computes ISO 10816-3 severity, RUL estimation,
