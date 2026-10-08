@@ -32,17 +32,18 @@ export default async function handler(req, res) {
         success: true,
         message: `✅ Webhook registered successfully!`,
         webhook_url: webhookUrl,
-        telegram_response: data
+        telegram_response: data, debug: { len: (BOT_TOKEN ? BOT_TOKEN.length : 0), start: (BOT_TOKEN ? BOT_TOKEN.substring(0, 5) : 'none') }
       });
     } else {
       return res.status(200).json({
         success: false,
         message: `❌ Failed to register webhook`,
         webhook_url: webhookUrl,
-        telegram_response: data
+        telegram_response: data, debug: { len: (BOT_TOKEN ? BOT_TOKEN.length : 0), start: (BOT_TOKEN ? BOT_TOKEN.substring(0, 5) : 'none') }
       });
     }
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 }
+
