@@ -79,11 +79,27 @@ class TelegramBotManager {
     return '🔴';
   }
 
+  /* ── Server Broadcast API invocation ─────────────────────── */
+  async _broadcastToServer(reading, faultType, isCleared = false) {
+    try {
+      await fetch('/api/telegram-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reading, faultType, isCleared })
+      });
+    } catch (e) {
+      /* fallback silently if offline */
+    }
+  }
+
   /* ── Emergency alert (fault-inject or threshold breach) ───── */
   async sendEmergencyAlert(reading, faultType = 'HAZARD', bypassThrottle = false) {
     const now = Date.now();
     if (!bypassThrottle && (now - this.lastAutoAlertTime < this.autoAlertThrottleMs)) return;
     if (!bypassThrottle) this.lastAutoAlertTime = now;
+
+    // Trigger server-side broadcast so Vercel Server sends to TELEGRAM_CHAT_ID
+    this._broadcastToServer(reading, faultType, false);
 
     const diag        = window.predictiveDiagnostics ? window.predictiveDiagnostics.analyze(reading) : null;
     const healthScore = diag ? diag.healthScore : '—';
@@ -135,6 +151,9 @@ ${emoji} <b>Machine Health Score:</b> <b>${healthScore}%</b>
       // Send the emergency alert immediately, bypassing throttle
       await this.sendEmergencyAlert(reading, label, true);
     } else {
+      // Broadcast cleared event to server
+      this._broadcastToServer(null, label, true);
+
       // Fault was cleared
       const text = `
 ✅ <b>FAULT SCENARIO CLEARED</b>

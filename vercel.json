@@ -3,6 +3,12 @@
   "name": "pms-diagnostics",
   "buildCommand": "",
   "outputDirectory": ".",
+  "crons": [
+    {
+      "path": "/api/cron-telemetry",
+      "schedule": "* * * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/telegram",
@@ -13,8 +19,17 @@
       "dest": "/api/setup-webhook.js"
     },
     {
+      "src": "/api/cron-telemetry",
+      "dest": "/api/cron-telemetry.js"
+    },
+    {
+      "src": "/api/telegram-broadcast",
+      "dest": "/api/telegram-broadcast.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }
   ]
 }
+
