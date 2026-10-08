@@ -258,9 +258,16 @@ Physics-based telemetry simulation with:
     try {
       const url = `${this.apiUrl}/getUpdates?offset=${this.lastUpdateId + 1}&timeout=2`;
       const res = await fetch(url);
-      if (!res.ok) return;
       const data = await res.json();
-      if (data.ok && Array.isArray(data.result)) {
+      if (!data.ok) {
+        if (data.description && data.description.toLowerCase().includes('webhook')) {
+          console.log('[PMS Telegram] Serverless Webhook active on Vercel. Browser polling disabled in favor of webhook.');
+          this.stopLongPolling();
+          return;
+        }
+        return;
+      }
+      if (Array.isArray(data.result)) {
         for (const update of data.result) {
           this.lastUpdateId = update.update_id;
           await this.handleUpdate(update);
