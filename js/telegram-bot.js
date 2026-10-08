@@ -82,13 +82,14 @@ class TelegramBotManager {
   /* ── Server Broadcast API invocation ─────────────────────── */
   async _broadcastToServer(reading, faultType, isCleared = false) {
     try {
-      await fetch('/api/broadcast', {
+      // Calls /api/telegram?action=broadcast — the one endpoint confirmed working on Vercel
+      await fetch('/api/telegram?action=broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reading, faultType, isCleared })
       });
     } catch (e) {
-      /* fallback silently if offline */
+      /* silently continue if network unavailable */
     }
   }
 
