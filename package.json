@@ -1,0 +1,27 @@
+{
+  "name": "predictive-maintenance-system",
+  "version": "2.0.0",
+  "description": "Autonomous Heavy Industrial Predictive Maintenance & IoT Telemetry Web Application — Physics-Based Simulation Engine, Real-Time Anomaly Detection, ISO 10816-3 Analysis, RUL Estimation.",
+  "main": "index.html",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yasenzeb/predictive.git"
+  },
+  "keywords": [
+    "predictive-maintenance",
+    "industrial-iot",
+    "telemetry",
+    "vibration-analysis",
+    "physics-simulation",
+    "chartjs",
+    "tailwindcss"
+  ],
+  "author": "Autonomous Senior Front-End Engineer",
+  "license": "MIT"
+}
+

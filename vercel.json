@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "name": "pms-diagnostics",
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "routes": [
+    {
+      "src": "/api/telegram",
+      "dest": "/api/telegram.js"
+    },
+    {
+      "src": "/api/setup-webhook",
+      "dest": "/api/setup-webhook.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}

@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PMS — Predictive Maintenance System</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="css/design.css">
+
+  <!-- Tailwind CDN (utility classes only where needed) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: { extend: {} }
+    }
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons (lightweight icon library, not AI-style) -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+
+  <style>
+    /* Page-specific overrides */
+    body { font-family: var(--font-body); }
+
+    /* Hero number counter shimmer */
+    .counter-shimmer {
+      background: linear-gradient(90deg, var(--zinc-600) 0%, var(--zinc-400) 50%, var(--zinc-600) 100%);
+      background-size: 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+    }
+    @keyframes shimmer {
+      from { background-position: 200% center; }
+      to { background-position: -200% center; }
+    }
+
+    /* Big tech decorative separator */
+    .section-rule {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 16px;
+      margin: 48px 0;
+    }
+    .section-rule::before, .section-rule::after {
+      content: '';
+      height: 1px;
+      background: var(--zinc-800);
+    }
+
+    /* Post-submit banner */
+    #post-submit-action { display: none; }
+    #post-submit-action.show { display: flex; }
+
+    /* Page header pill */
+    .page-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 4px 8px;
+      background: var(--zinc-900);
+      border: 1px solid var(--zinc-800);
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--zinc-500);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    /* Number display styling for kpi cards */
+    .kpi-num {
+      font-family: var(--font-mono);
+      font-size: 2.25rem;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--zinc-100);
+    }
+    .kpi-num.ok { color: var(--status-ok); }
+    .kpi-num.warn { color: var(--status-warn); }
+    .kpi-num.silver { color: var(--silver-bright); }
+
+    /* Metric row in sensor input blocks */
+    .sensor-block {
+      padding: 20px;
+      background: var(--zinc-950);
+      border: 1px solid var(--zinc-800);
+      border-radius: var(--radius-lg);
+      transition: border-color var(--duration-base) var(--ease-out);
+    }
+    .sensor-block:hover { border-color: var(--zinc-700); }
+
+    /* Feature image overlay */
+    .feature-img-wrap {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid var(--zinc-800);
+    }
+    .feature-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: brightness(0.85) contrast(1.1) saturate(0.7);
+      transition: filter 0.5s var(--ease-out);
+    }
+    .feature-img-wrap:hover img {
+      filter: brightness(0.95) contrast(1.05) saturate(0.8);
+    }
+    .feature-img-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(9,9,11,0.95));
+      padding: 32px 20px 20px;
+    }
+
+    /* Responsive utility */
+    .hidden-mobile { display: block; }
+    @media (max-width: 640px) { .hidden-mobile { display: none; } }
+    .show-mobile { display: none; }
+    @media (max-width: 640px) { .show-mobile { display: flex; } }
+
+    /* Alert strip icon sizes */
+    .alert-strip svg { flex-shrink: 0; }
+
+    /* Table action button */
+    .tbl-del {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--zinc-600);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      transition: color var(--duration-fast), background var(--duration-fast);
+    }
+    .tbl-del:hover { color: var(--status-danger); background: rgba(239,68,68,0.08); }
+
+    /* Filter tab bar */
+    .filter-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--zinc-950);
+      border: 1px solid var(--zinc-800);
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+    .filter-tab {
+      padding: 5px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      border: 1px solid transparent;
+      color: var(--zinc-500);
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .filter-tab.active-ok     { background: var(--status-ok-bg); color: var(--status-ok); border-color: var(--status-ok-border); }
+    .filter-tab.active-warn   { background: var(--status-warn-bg); color: var(--status-warn); border-color: var(--status-warn-border); }
+    .filter-tab.active-danger { background: var(--status-danger-bg); color: var(--status-danger); border-color: var(--status-danger-border); }
+    .filter-tab.active-all    { background: var(--zinc-800); color: var(--zinc-100); border-color: var(--zinc-700); }
+
+    /* Nav responsive refinement */
+    @media (max-width: 1024px) {
+      .nav-inner { padding: 0 16px; gap: 12px; }
+      .nav-logo-title { font-size: 0.9rem; }
+      .nav-logo-sub { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ====================================================
+       TOP NAVIGATION BAR
+       ==================================================== -->
+  <header class="nav-bar">
+    <div class="nav-inner">
+
+      <!-- Logo -->
+      <div class="nav-logo" onclick="navigate('page-1')">
+        <div class="nav-logo-mark">
+          <img src="assets/gear-logo.svg" alt="PMS" class="gear-spin" width="20" height="20">
+        </div>
+        <div>
+          <div class="nav-logo-title">PMS</div>
+          <div class="nav-logo-sub">Predictive Maintenance</div>
+        </div>
+      </div>
+
+      <!-- Desktop Tabs -->
+      <nav class="nav-tabs hidden md:flex" id="main-nav">
+        <button class="nav-tab active" data-page="page-1" onclick="navigate('page-1')">
+          <span class="tab-index">01</span> Overview
+        </button>
+        <button class="nav-tab" data-page="page-2" onclick="navigate('page-2')">
+          <span class="tab-index">02</span> Input Data
+        </button>
+        <button class="nav-tab" data-page="page-3" onclick="navigate('page-3')">
+          <span class="tab-index">03</span> Analytics
+        </button>
+      </nav>
+
+      <!-- Right Controls -->
+      <div class="flex items-center gap-3">
+        <!-- HIL Data Source Selector -->
+        <div class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-zinc-800 bg-zinc-950 text-xs font-mono">
+          <span class="text-zinc-500 uppercase text-[10px]">Source:</span>
+          <select id="source-selector" onchange="changeDataSource(this.value)" class="bg-transparent text-cyan-400 font-mono text-xs border-0 outline-none cursor-pointer">
+            <option value="SIMULATOR" class="bg-zinc-900 text-cyan-400">⚡ Simulator (Physics HIL)</option>
+            <option value="DATABASE" class="bg-zinc-900 text-emerald-400">🗄️ Database (Supabase / REST)</option>
+            <option value="HARDWARE" class="bg-zinc-900 text-amber-400">🔌 Hardware Edge Stream</option>
+          </select>
+        </div>
+
+        <!-- Telegram Bot Indicator -->
+        <div id="tg-status-badge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-sky-900/50 bg-sky-950/30 text-xs font-mono text-sky-400" title="Telegram Bot Live Sync Active">
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .34z"/></svg>
+          <span class="text-[11px] font-semibold">BOT SYNC</span>
+        </div>
+
+        <div id="nav-status" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-zinc-800 bg-zinc-900 text-xs font-mono text-zinc-400">
+          <span class="dot dot-ok"></span>
+          <span id="nav-status-text">NOMINAL</span>
+        </div>
+        <button class="btn btn-icon btn-ghost" id="btn-audio" title="Toggle audio" onclick="toggleAudio()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="icon-audio"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Mobile Nav -->
+  <nav class="nav-mobile" id="mobile-nav">
+    <button class="nav-tab active" data-page="page-1" onclick="navigate('page-1')">
+      <span class="tab-index">01</span><span>Overview</span>
+    </button>
+    <button class="nav-tab" data-page="page-2" onclick="navigate('page-2')">
+      <span class="tab-index">02</span><span>Input</span>
+    </button>
+    <button class="nav-tab" data-page="page-3" onclick="navigate('page-3')">
+      <span class="tab-index">03</span><span>Analytics</span>
+    </button>
+  </nav>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- ====================================================
+       MAIN CONTENT
+       ==================================================== -->
+  <main>
+
+    <!-- =========================================================
+         PAGE 1 — OVERVIEW
+         ========================================================= -->
+    <section id="page-1" class="page-view active">
+      <div class="page-container space-y-10">
+
+        <!-- Alert Banner -->
+        <div id="alert-banner" class="alert-strip state-ok">
+          <div class="alert-icon ok" id="alert-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center gap-3 flex-wrap mb-1">
+              <span id="alert-title" class="font-sans font-semibold text-sm text-green-400">System Nominal</span>
+              <span id="alert-badge" class="badge badge-ok">HEALTHY</span>
+              <span id="alert-time" class="text-label ml-auto">SYNCED</span>
+            </div>
+            <p id="alert-msg" class="text-sm text-zinc-400" style="font-family: var(--font-mono);">
+              All machinery telemetry within safe operating parameters.
+            </p>
+          </div>
+          <button class="btn btn-sm btn-secondary hidden-mobile flex-shrink-0" onclick="navigate('page-2')">
+            Update sensors →
+          </button>
+        </div>
+
+        <!-- Hero Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+          <!-- Left: Hero copy -->
+          <div class="lg:col-span-6 space-y-6">
+            <div class="page-pill">
+              <span class="dot dot-ok"></span>
+              Industrial IoT Diagnostics Platform
+            </div>
+
+            <div>
+              <h1 class="text-display text-4xl sm:text-5xl lg:text-6xl mb-4">
+                <span style="color: var(--zinc-100);">Predictive</span><br>
+                <span class="text-silver">Maintenance</span><br>
+                <span style="color: var(--zinc-500);">System</span>
+              </h1>
+              <p class="text-base text-zinc-400 max-w-md leading-relaxed" style="font-family: var(--font-body);">
+                Continuous multi-axis vibration analysis, thermal variance tracking, and current monitoring. Detect failures before they become downtime.
+              </p>
+            </div>
+
+            <!-- CTA -->
+            <div class="flex flex-wrap gap-3">
+              <button class="btn btn-primary btn-lg" onclick="navigate('page-2'); SFX.click();">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                Launch System
+              </button>
+              <button class="btn btn-secondary btn-lg" onclick="navigate('page-3'); SFX.click();">
+                View Analytics
+              </button>
+            </div>
+
+            <!-- Quick stats bar -->
+            <div class="grid grid-cols-3 gap-4 pt-4 border-t border-zinc-800">
+              <div>
+                <div class="kpi-label">Failure Reduction</div>
+                <div class="kpi-value">94.8%</div>
+              </div>
+              <div>
+                <div class="kpi-label">Early Detection</div>
+                <div class="kpi-value">14d</div>
+              </div>
+              <div>
+                <div class="kpi-label">Sensor Uptime</div>
+                <div class="kpi-value text-silver-bright" style="color: var(--silver-bright)">99.98%</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Feature card — VERBATIM recreation of reference image -->
+          <div class="lg:col-span-6 space-y-3">
+
+            <div class="section-eyebrow">System Pillars</div>
+
+            <!-- Pillar 1: Real-Time Monitoring -->
+            <div class="pillar-row">
+              <div class="pillar-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div>
+                <div class="font-sans font-semibold text-zinc-100 tracking-tight" style="font-size:0.95rem; letter-spacing:-0.01em;">Real-Time Monitoring</div>
+                <div class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-body);">10kHz sensor sampling — vibration, temperature, current, and RPM.</div>
+              </div>
+            </div>
+
+            <!-- Pillar 2: Anomaly Detection -->
+            <div class="pillar-row">
+              <div class="pillar-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div>
+                <div class="font-sans font-semibold text-zinc-100 tracking-tight" style="font-size:0.95rem; letter-spacing:-0.01em;">Anomaly Detection</div>
+                <div class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-body);">Filters ambient factory noise — isolates harmonic and resonance spikes.</div>
+              </div>
+            </div>
+
+            <!-- Pillar 3: Predict Issues Early -->
+            <div class="pillar-row">
+              <div class="pillar-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07M5.46 5.46a10 10 0 0 0 0 14.14M8.93 8.46a5 5 0 0 0 0 7.07"/></svg>
+              </div>
+              <div>
+                <div class="font-sans font-semibold text-zinc-100 tracking-tight" style="font-size:0.95rem; letter-spacing:-0.01em;">Predict Issues Early</div>
+                <div class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-body);">Forecast bearing fatigue and lubrication failure weeks before seizure.</div>
+              </div>
+            </div>
+
+            <!-- Pillar 4: Reduce Downtime & Costs -->
+            <div class="pillar-row">
+              <div class="pillar-icon-ring">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div>
+                <div class="font-sans font-semibold text-zinc-100 tracking-tight" style="font-size:0.95rem; letter-spacing:-0.01em;">Reduce Downtime &amp; Costs</div>
+                <div class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-body);">Planned maintenance windows replace reactive emergency repair costs.</div>
+              </div>
+            </div>
+
+            <!-- Reference image -->
+            <div class="feature-img-wrap mt-4" style="height: 180px;">
+              <img src="assets/hero-feature-card.jpg" alt="Industrial sensor node on rotating machinery">
+              <div class="feature-img-overlay">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-label">Sensor Node #402 — Rotating Axis</div>
+                    <div class="font-sans font-semibold text-sm text-zinc-200 mt-1">Wireless Edge Telemetry Active</div>
+                  </div>
+                  <span class="badge badge-ok">LIVE</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <!-- =====================================================
+             ADVANCED DIAGNOSTICS & FAULT INJECTION SUITE
+             ===================================================== -->
+        <div class="mt-8 pt-8 border-t border-zinc-800 space-y-6">
+
+          <!-- Section Heading -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="page-pill">
+                <span class="dot dot-silver"></span>
+                Hardware-in-the-Loop Diagnostics Suite
+              </div>
+              <h2 class="text-heading text-2xl text-zinc-100">Live Health Index &amp; Interactive Fault Injection</h2>
+              <p class="text-sm text-zinc-500 mt-1" style="font-family: var(--font-body);">
+                Physics-based real-time telemetry processing with Remaining Useful Life (RUL) estimation and ISO 10816 vibration classification.
+              </p>
+            </div>
+            <!-- Live Source Indicator -->
+            <div class="flex items-center gap-2">
+              <span id="hil-stream-indicator" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-cyan-800/40 bg-cyan-950/20 text-xs font-mono text-cyan-400">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span id="hil-stream-label">STREAM: PHYSICS SIMULATOR</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Diagnostic Prognostic KPI Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            <!-- Health Score Card -->
+            <div class="card p-5 border border-zinc-800 hover:border-zinc-700 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="kpi-label">Machine Health Index</span>
+                <span id="hud-health-badge" class="badge badge-ok">EXCELLENT</span>
+              </div>
+              <div class="kpi-num ok mt-2" id="hud-health-score">98%</div>
+              <!-- Health bar -->
+              <div class="w-full bg-zinc-800 h-2 rounded-full mt-3 overflow-hidden">
+                <div id="hud-health-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 98%;"></div>
+              </div>
+              <div class="text-xs text-zinc-500 mt-2 font-mono flex justify-between">
+                <span>Weighted Degradation</span>
+                <span id="hud-degrade-penalty">0% Penalty</span>
+              </div>
+            </div>
+
+            <!-- Remaining Useful Life (RUL) -->
+            <div class="card p-5 border border-zinc-800 hover:border-zinc-700 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="kpi-label">Remaining Useful Life (RUL)</span>
+                <span class="text-xs font-mono text-zinc-400">EXP MODEL</span>
+              </div>
+              <div class="kpi-num silver mt-2" id="hud-rul-val">750.0 <span class="text-sm font-sans font-normal text-zinc-400">Days</span></div>
+              <div class="text-xs text-zinc-400 mt-3 font-mono">
+                Est: <span id="hud-rul-hours" class="text-zinc-200">18,000</span> Operating Hours
+              </div>
+              <div class="text-xs text-zinc-500 mt-1 font-mono">L10h bearing fatigue forecast</div>
+            </div>
+
+            <!-- Anomaly Confidence Score -->
+            <div class="card p-5 border border-zinc-800 hover:border-zinc-700 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="kpi-label">Anomaly Confidence</span>
+                <span id="hud-anomaly-badge" class="badge badge-ok">NOMINAL</span>
+              </div>
+              <div class="kpi-num mt-2 text-cyan-400" id="hud-confidence-score">99.4%</div>
+              <div class="text-xs text-zinc-400 mt-3 font-mono truncate" id="hud-anomaly-type">
+                Cross-Sensor: Multi-Axis Coherence
+              </div>
+              <div class="text-xs text-zinc-500 mt-1 font-mono">Statistical correlation matrix</div>
+            </div>
+
+            <!-- ISO 10816 Vibration Rating -->
+            <div class="card p-5 border border-zinc-800 hover:border-zinc-700 transition-all">
+              <div class="flex items-center justify-between">
+                <span class="kpi-label">ISO 10816-3 Zone</span>
+                <span class="text-xs font-mono text-zinc-400">CLASS II</span>
+              </div>
+              <div class="text-lg font-mono font-bold text-zinc-100 mt-2" id="hud-iso-zone">Zone A (Good)</div>
+              <div class="text-xs text-zinc-400 mt-3 font-mono">
+                RMS Vib: <span id="hud-rms-vib" class="text-cyan-400">1.92</span> mm/s
+              </div>
+              <div class="text-xs text-zinc-500 mt-1 font-mono">Unrestricted continuous duty</div>
+            </div>
+
+          </div>
+
+          <!-- Interactive Fault Injection Console -->
+          <div class="card card-highlight p-6 border border-zinc-800">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+              <div>
+                <div class="section-eyebrow">Interactive Testing Panel</div>
+                <h3 class="text-heading text-lg text-zinc-100">Fault Injection &amp; Stress Simulation</h3>
+                <p class="text-sm text-zinc-500 mt-0.5" style="font-family: var(--font-body);">
+                  Trigger realistic mechanical and thermal fault scenarios to validate real-time alarm handling, health degradation, and instant Telegram dispatches.
+                </p>
+              </div>
+              <button class="btn btn-sm btn-ghost border border-zinc-800 text-zinc-400 hover:text-white" onclick="resetFaultsAndRestore()">
+                ↺ Reset All to Nominal
+              </button>
+            </div>
+
+            <!-- Fault Buttons Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+
+              <!-- Fault 1: Thermal Overheat -->
+              <button id="btn-fault-thermal" onclick="toggleFaultScenario('thermalOverheat', this)" class="p-4 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-left transition-all group">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-mono font-semibold uppercase text-zinc-400 group-hover:text-red-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-zinc-600 status-dot"></span>
+                    Thermal Overheat
+                  </span>
+                  <span class="text-xs font-mono text-zinc-500 trigger-text">INJECT</span>
+                </div>
+                <div class="font-sans font-semibold text-sm text-zinc-200">Cooling Breakdown (>90°C)</div>
+                <p class="text-xs text-zinc-500 mt-1">Accelerates thermal losses &amp; triggers thermal runaway alarm.</p>
+              </button>
+
+              <!-- Fault 2: Vibration Anomaly -->
+              <button id="btn-fault-vib" onclick="toggleFaultScenario('vibrationAnomaly', this)" class="p-4 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-left transition-all group">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-mono font-semibold uppercase text-zinc-400 group-hover:text-amber-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-zinc-600 status-dot"></span>
+                    Vibration Anomaly
+                  </span>
+                  <span class="text-xs font-mono text-zinc-500 trigger-text">INJECT</span>
+                </div>
+                <div class="font-sans font-semibold text-sm text-zinc-200">Bearing Defect &amp; Resonance</div>
+                <p class="text-xs text-zinc-500 mt-1">Simulates outer race spalling and severe axial thrust vibration (>8 mm/s).</p>
+              </button>
+
+              <!-- Fault 3: RPM Overspeed & Overload -->
+              <button id="btn-fault-rpm" onclick="toggleFaultScenario('overspeedOverload', this)" class="p-4 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-left transition-all group">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-mono font-semibold uppercase text-zinc-400 group-hover:text-red-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-zinc-600 status-dot"></span>
+                    Overspeed &amp; Overload
+                  </span>
+                  <span class="text-xs font-mono text-zinc-500 trigger-text">INJECT</span>
+                </div>
+                <div class="font-sans font-semibold text-sm text-zinc-200">Kinematic Surge (>4400 RPM)</div>
+                <p class="text-xs text-zinc-500 mt-1">Simulates severe motor overvoltage and current overload (>30A).</p>
+              </button>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =========================================================
+         PAGE 2 — SENSOR DATA INPUT
+         ========================================================= -->
+    <section id="page-2" class="page-view">
+      <div class="page-container">
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-zinc-800">
+          <div>
+            <div class="page-pill">
+              <span class="dot dot-silver"></span>
+              Telemetry Ingestion
+            </div>
+            <h2 class="text-heading text-3xl text-zinc-100">Daily Sensor Input</h2>
+            <p class="text-sm text-zinc-500 mt-1" style="font-family:var(--font-body);">
+              Submit readings to log analysis. Values exceeding thresholds trigger live alerts on the Overview page.
+            </p>
+          </div>
+
+          <!-- Quick Presets -->
+          <div class="flex flex-wrap gap-2">
+            <button class="preset-chip chip-ok" id="preset-normal">✓ Normal</button>
+            <button class="preset-chip chip-warn" id="preset-vibration">⚡ Axis Z Fault</button>
+            <button class="preset-chip chip-danger" id="preset-overheat">🔥 Thermal Spike</button>
+            <button class="preset-chip" id="preset-random">⟳ Random</button>
+          </div>
+        </div>
+
+        <!-- Form -->
+        <form id="sensor-form" novalidate>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <!-- Current -->
+            <div class="sensor-block">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="sensor-icon-panel">
+                  <img src="assets/icon-current.jpg" alt="Current sensor icon">
+                </div>
+                <div>
+                  <div class="field-label" style="margin-bottom:2px;">1. Current</div>
+                  <div class="text-label" style="color:var(--zinc-600);">Safe: 5–20 A · Warn: 20–28 A · Critical: &gt;28 A</div>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="input-wrap" id="wrap-current">
+                  <input type="number" step="0.1" id="input-current" class="input-field" placeholder="14.5" value="14.5" required>
+                  <span class="input-adornment">A</span>
+                </div>
+                <div class="field-hint ok" id="hint-current">✓ Nominal range</div>
+              </div>
+            </div>
+
+            <!-- RPM -->
+            <div class="sensor-block">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="sensor-icon-panel">
+                  <img src="assets/icon-rpm.jpg" alt="RPM sensor icon">
+                </div>
+                <div>
+                  <div class="field-label" style="margin-bottom:2px;">2. Shaft Speed (RPM)</div>
+                  <div class="text-label" style="color:var(--zinc-600);">Safe: 1200–3200 · Warn: 3200–4200 · Critical: &gt;4200</div>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="input-wrap" id="wrap-rpm">
+                  <input type="number" step="10" id="input-rpm" class="input-field" placeholder="1800" value="1800" required>
+                  <span class="input-adornment">RPM</span>
+                </div>
+                <div class="field-hint ok" id="hint-rpm">✓ Nominal range</div>
+              </div>
+            </div>
+
+            <!-- Vibration — spans full width -->
+            <div class="sensor-block md:col-span-2">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="sensor-icon-panel">
+                  <img src="assets/icon-vibration.jpg" alt="Vibration sensor icon">
+                </div>
+                <div>
+                  <div class="field-label" style="margin-bottom:2px;">3. Vibration X / Y / Z Axes</div>
+                  <div class="text-label" style="color:var(--zinc-600);">Safe: &lt;3.5 mm/s · Warn: 3.5–6.5 · Critical: &gt;6.5 mm/s</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="field-group">
+                  <label class="field-label" style="color:var(--zinc-600)">Axis X — Horizontal</label>
+                  <div class="input-wrap" id="wrap-vib-x">
+                    <input type="number" step="0.1" id="input-vib-x" class="input-field" placeholder="2.1" value="2.1" required>
+                    <span class="input-adornment">mm/s</span>
+                  </div>
+                  <div class="field-hint ok" id="hint-vib-x">✓ Nominal</div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color:var(--zinc-600)">Axis Y — Vertical</label>
+                  <div class="input-wrap" id="wrap-vib-y">
+                    <input type="number" step="0.1" id="input-vib-y" class="input-field" placeholder="2.4" value="2.4" required>
+                    <span class="input-adornment">mm/s</span>
+                  </div>
+                  <div class="field-hint ok" id="hint-vib-y">✓ Nominal</div>
+                </div>
+                <div class="field-group">
+                  <label class="field-label" style="color:var(--zinc-600)">Axis Z — Axial Thrust</label>
+                  <div class="input-wrap" id="wrap-vib-z">
+                    <input type="number" step="0.1" id="input-vib-z" class="input-field" placeholder="1.9" value="1.9" required>
+                    <span class="input-adornment">mm/s</span>
+                  </div>
+                  <div class="field-hint ok" id="hint-vib-z">✓ Nominal</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Temperature -->
+            <div class="sensor-block">
+              <div class="flex items-center gap-4 mb-4">
+                <div class="sensor-icon-panel">
+                  <img src="assets/icon-temp.svg" alt="Temperature sensor icon">
+                </div>
+                <div>
+                  <div class="field-label" style="margin-bottom:2px;">4. Bearing Temperature</div>
+                  <div class="text-label" style="color:var(--zinc-600);">Safe: 25–65°C · Warn: 65–85°C · Critical: &gt;85°C</div>
+                </div>
+              </div>
+              <div class="field-group">
+                <div class="input-wrap" id="wrap-temp">
+                  <input type="number" step="0.1" id="input-temp" class="input-field" placeholder="52.0" value="52.0" required>
+                  <span class="input-adornment">°C</span>
+                </div>
+                <div class="field-hint ok" id="hint-temp">✓ Nominal range</div>
+              </div>
+            </div>
+
+            <!-- Note field -->
+            <div class="sensor-block">
+              <div class="field-label" style="margin-bottom:12px;">Cycle Note / Observation</div>
+              <div class="field-group">
+                <div class="input-wrap">
+                  <input type="text" id="input-note" class="input-field" placeholder="Routine telemetry check..." value="Routine telemetry check">
+                </div>
+                <div class="field-hint">Stored with timestamp in local analysis log</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Submit Row -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-6 pt-6 border-t border-zinc-800">
+            <div class="text-label">Submission recalculates alert state &amp; updates analytics chart in real-time.</div>
+            <button type="submit" class="btn btn-primary btn-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Log &amp; Evaluate
+            </button>
+          </div>
+
+          <!-- Post-submit prompt -->
+          <div id="post-submit-action" class="alert-strip state-ok mt-5 items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span class="text-sm text-zinc-300 flex-1" style="font-family:var(--font-mono);">Reading saved. Logs and chart updated.</span>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="navigate('page-3'); SFX.click();">View in Analytics →</button>
+          </div>
+
+        </form>
+      </div>
+    </section>
+
+
+    <!-- =========================================================
+         PAGE 3 — ANALYTICS & LOGS
+         ========================================================= -->
+    <section id="page-3" class="page-view">
+      <div class="page-container space-y-8">
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
+          <div>
+            <div class="page-pill">
+              <span class="dot dot-silver"></span>
+              Telemetry Archive
+            </div>
+            <h2 class="text-heading text-3xl text-zinc-100">Analytics &amp; Logs</h2>
+            <p class="text-sm text-zinc-500 mt-1" style="font-family:var(--font-body);">
+              Multi-metric trend charts and historical sensor readings with status classification.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2.5">
+            <button class="btn btn-primary btn-sm" onclick="exportDiagnosticReportPDF()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Export Report (PDF / Print)
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="exportCSV()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="resetDemo()" style="font-family:var(--font-mono);">Restore Demo</button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="card p-5">
+            <div class="kpi-label">Total Logs</div>
+            <div class="kpi-num" id="kpi-total">6</div>
+            <div class="text-label mt-2" style="color:var(--zinc-600)">All submitted cycles</div>
+          </div>
+          <div class="card p-5">
+            <div class="kpi-label">Critical Faults</div>
+            <div class="kpi-num" id="kpi-danger">1</div>
+            <div class="text-label mt-2" style="color:var(--zinc-600)">Threshold breaches</div>
+          </div>
+          <div class="card p-5">
+            <div class="kpi-label">Avg. Temperature</div>
+            <div class="kpi-num silver" id="kpi-avg-temp">57.9°C</div>
+            <div class="text-label mt-2" style="color:var(--zinc-600)">Nominal operating band</div>
+          </div>
+        </div>
+
+        <!-- Chart Card -->
+        <div class="card card-highlight p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div class="section-eyebrow">Trend Visualization</div>
+              <h3 class="text-heading text-lg text-zinc-100">Multi-Metric Telemetry</h3>
+              <p class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-mono);">Temperature · Vibration · Current · RPM</p>
+            </div>
+            <!-- Legend Pills -->
+            <div class="flex flex-wrap gap-2">
+              <button class="chart-legend-pill" style="border-color:rgba(239,68,68,0.3);color:#f87171;background:rgba(239,68,68,0.08)" onclick="toggleDS(0,this)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;"></span> Temp
+              </button>
+              <button class="chart-legend-pill" style="border-color:rgba(192,192,192,0.25);color:#d4d4d8;background:rgba(192,192,192,0.06)" onclick="toggleDS(1,this)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#c0c0c0;display:inline-block;"></span> Vibration
+              </button>
+              <button class="chart-legend-pill" style="border-color:rgba(234,179,8,0.3);color:#fbbf24;background:rgba(234,179,8,0.08)" onclick="toggleDS(2,this)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#eab308;display:inline-block;"></span> Current
+              </button>
+              <button class="chart-legend-pill" style="border-color:rgba(34,197,94,0.25);color:#4ade80;background:rgba(34,197,94,0.06)" onclick="toggleDS(3,this)">
+                <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;"></span> RPM
+              </button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="telemetryChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Logs Table Card -->
+        <div class="card">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-zinc-800">
+            <div>
+              <h3 class="text-heading text-base text-zinc-100">Sensor Reading Logs</h3>
+              <p class="text-sm text-zinc-500 mt-0.5" style="font-family:var(--font-mono);">Chronological — danger rows highlighted</p>
+            </div>
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+              <button class="filter-tab active-all" data-filter="ALL" onclick="setFilter('ALL',this)">All</button>
+              <button class="filter-tab" data-filter="NORMAL" onclick="setFilter('NORMAL',this)">Normal</button>
+              <button class="filter-tab" data-filter="WARNING" onclick="setFilter('WARNING',this)">Warning</button>
+              <button class="filter-tab" data-filter="DANGER" onclick="setFilter('DANGER',this)">Danger</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Status</th>
+                  <th>Temp (°C)</th>
+                  <th>RPM</th>
+                  <th>Vibration X / Y / Z</th>
+                  <th>Current (A)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="logs-body">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div class="flex items-center gap-3">
+        <img src="assets/gear-logo.svg" alt="" width="16" height="16" class="gear-spin opacity-40">
+        <span>Predictive Maintenance System — Industrial IoT Diagnostics</span>
+      </div>
+      <span>Black &amp; Silver Design System · Client-Side Engine</span>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/physics-engine.js"></script>
+  <script src="js/diagnostics-engine.js"></script>
+  <script src="js/data-layer.js"></script>
+  <script src="js/telegram-bot.js"></script>
+
+  <script>
+    /* ===============================================
+       APP CONTROLLER — inline, no extra file needed
+       =============================================== */
+
+    // Alias sound engine
+    const SFX = {
+      click:   () => window.soundEngine?.playClick(),
+      success: () => window.soundEngine?.playSuccess(),
+      warn:    () => window.soundEngine?.playWarning(),
+      danger:  () => window.soundEngine?.playDangerAlarm()
+    };
+
+    // ---- Navigation ----
+    let currentPage = 'page-1';
+    function navigate(pageId) {
+      currentPage = pageId;
+      document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('[data-page]').forEach(t => t.classList.remove('active'));
+      document.getElementById(pageId).classList.add('active');
+      document.querySelectorAll(`[data-page="${pageId}"]`).forEach(t => t.classList.add('active'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (pageId === 'page-3') setTimeout(() => chartManager.refresh(), 30);
+      SFX.click();
+    }
+
+    // ---- Alert Banner ----
+    function refreshAlert(customAlert = null) {
+      let alert = customAlert;
+      if (!alert) {
+        alert = window.maintenanceStorage.getActiveAlert();
+      } else if (alert.temperature !== undefined) {
+        // If passed a reading object, convert to alert structure
+        const evalRes = window.maintenanceStorage.evaluateStatus(alert);
+        alert = {
+          level: evalRes.level,
+          message: evalRes.level !== 'NORMAL' ? `${evalRes.level === 'DANGER' ? 'CRITICAL ALERT' : 'WARNING'}: ${evalRes.reason}` : 'All machinery telemetry within safe operating parameters.',
+          timestamp: new Date().toLocaleTimeString()
+        };
+      }
+
+      const banner = document.getElementById('alert-banner');
+      const icon   = document.getElementById('alert-icon-wrap');
+      const title  = document.getElementById('alert-title');
+      const badge  = document.getElementById('alert-badge');
+      const msg    = document.getElementById('alert-msg');
+      const ts     = document.getElementById('alert-time');
+      const navSt  = document.getElementById('nav-status');
+      const navTxt = document.getElementById('nav-status-text');
+
+      if (!banner) return;
+      banner.className = 'alert-strip ';
+      if (alert.level === 'DANGER') {
+        banner.classList.add('state-danger');
+        if (icon) {
+          icon.className = 'alert-icon danger';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+        }
+        if (title) {
+          title.textContent = 'Critical Fault Detected';
+          title.className = 'font-sans font-semibold text-sm text-red-400';
+        }
+        if (badge) {
+          badge.textContent = 'CRITICAL FAULT';
+          badge.className = 'badge badge-danger';
+        }
+        if (navSt) navSt.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border bg-zinc-900 text-xs font-mono border-red-900 text-red-400';
+        if (navTxt) navTxt.textContent = 'FAULT';
+      } else if (alert.level === 'WARNING') {
+        banner.classList.add('state-warn');
+        if (icon) {
+          icon.className = 'alert-icon warn';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#eab308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+        }
+        if (title) {
+          title.textContent = 'Maintenance Warning';
+          title.className = 'font-sans font-semibold text-sm text-yellow-400';
+        }
+        if (badge) {
+          badge.textContent = 'WARNING';
+          badge.className = 'badge badge-warn';
+        }
+        if (navSt) navSt.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border bg-zinc-900 text-xs font-mono border-yellow-900 text-yellow-400';
+        if (navTxt) navTxt.textContent = 'WARNING';
+      } else {
+        banner.classList.add('state-ok');
+        if (icon) {
+          icon.className = 'alert-icon ok';
+          icon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+        }
+        if (title) {
+          title.textContent = 'System Nominal';
+          title.className = 'font-sans font-semibold text-sm text-green-400';
+        }
+        if (badge) {
+          badge.textContent = 'HEALTHY';
+          badge.className = 'badge badge-ok';
+        }
+        if (navSt) navSt.className = 'hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border bg-zinc-900 text-xs font-mono border-zinc-800 text-zinc-400';
+        if (navTxt) navTxt.textContent = 'NOMINAL';
+      }
+      if (msg) msg.textContent = alert.message;
+      if (ts) ts.textContent = alert.timestamp || new Date().toLocaleTimeString();
+    }
+
+    // ---- Live Input Validation ----
+    function liveHint(inputId, val) {
+      const w = document.getElementById('wrap-' + inputId);
+      const h = document.getElementById('hint-' + inputId);
+      if (!w || !h || isNaN(val)) return;
+
+      let state, hint;
+      if (inputId === 'current') {
+        if (val > 28)      { state='danger'; hint='⚠ Critical: current surge (>28 A)'; }
+        else if (val > 20) { state='warn';   hint='⚡ Warning: high load (20–28 A)'; }
+        else               { state='ok';     hint='✓ Nominal (5–20 A)'; }
+      } else if (inputId.startsWith('vib')) {
+        if (val > 6.5)     { state='danger'; hint='⚠ Critical: severe vibration (>6.5 mm/s)'; }
+        else if (val > 3.5){ state='warn';   hint='⚡ Warning: elevated (3.5–6.5 mm/s)'; }
+        else               { state='ok';     hint='✓ Nominal (<3.5 mm/s)'; }
+      } else if (inputId === 'rpm') {
+        if (val > 4200 || (val > 0 && val < 600)) { state='danger'; hint='⚠ Critical: hazardous RPM range'; }
+        else if (val > 3200 || (val > 0 && val < 1000)) { state='warn'; hint='⚡ Warning: non-optimal RPM'; }
+        else { state='ok'; hint='✓ Nominal (1200–3200 RPM)'; }
+      } else if (inputId === 'temp') {
+        if (val > 85)      { state='danger'; hint='⚠ Critical: thermal overheat (>85°C)'; }
+        else if (val > 65) { state='warn';   hint='⚡ Warning: elevated temp (65–85°C)'; }
+        else               { state='ok';     hint='✓ Nominal (25–65°C)'; }
+      } else return;
+
+      w.className = 'input-wrap ' + (state !== 'ok' ? 'state-' + state : '');
+      h.className = 'field-hint ' + state;
+      h.textContent = hint;
+    }
+
+    // Attach live validation
+    const liveFields = [
+      ['current', 'current'], ['vib-x','vib-x'], ['vib-y','vib-y'],
+      ['vib-z','vib-z'], ['rpm','rpm'], ['temp','temp']
+    ];
+
+    // ---- Form Submit ----
+    document.getElementById('sensor-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const data = {
+        current:     document.getElementById('input-current').value,
+        vibX:        document.getElementById('input-vib-x').value,
+        vibY:        document.getElementById('input-vib-y').value,
+        vibZ:        document.getElementById('input-vib-z').value,
+        rpm:         document.getElementById('input-rpm').value,
+        temperature: document.getElementById('input-temp').value,
+        note:        document.getElementById('input-note').value
+      };
+      const entry = window.maintenanceStorage.addLog(data);
+
+      if (entry.status === 'DANGER')   { SFX.danger(); showToast('Critical Fault Registered', entry.note, 'danger'); }
+      else if (entry.status === 'WARNING') { SFX.warn(); showToast('Warning Logged', entry.note, 'warn'); }
+      else                              { SFX.success(); showToast('Reading Saved', 'Logged to analysis database.', 'ok'); }
+
+      refreshAlert();
+      renderLogs();
+      updateKPIs();
+      chartManager.refresh();
+      document.getElementById('post-submit-action').classList.add('show');
+    });
+
+    // ---- Presets ----
+    const setPreset = (cur, vx, vy, vz, rpm, temp, note) => {
+      document.getElementById('input-current').value = cur;
+      document.getElementById('input-vib-x').value = vx;
+      document.getElementById('input-vib-y').value = vy;
+      document.getElementById('input-vib-z').value = vz;
+      document.getElementById('input-rpm').value = rpm;
+      document.getElementById('input-temp').value = temp;
+      document.getElementById('input-note').value = note;
+      [['current',cur],['vib-x',vx],['vib-y',vy],['vib-z',vz],['rpm',rpm],['temp',temp]].forEach(([id,v]) => liveHint(id, parseFloat(v)));
+      SFX.click();
+    };
+    document.getElementById('preset-normal').onclick    = () => setPreset(14.2,1.9,2.1,1.8,1800,48.5,'Normal baseline operating cycle');
+    document.getElementById('preset-vibration').onclick = () => setPreset(21.5,4.2,3.8,8.4,3400,62.0,'Abnormal Vibration on Axis Z');
+    document.getElementById('preset-overheat').onclick  = () => setPreset(33.0,5.8,6.2,5.1,4400,94.5,'Critical thermal breakdown & current spike');
+    document.getElementById('preset-random').onclick    = () => setPreset(
+      +(10+Math.random()*22).toFixed(1), +(1+Math.random()*6).toFixed(1),
+      +(1+Math.random()*6).toFixed(1), +(1+Math.random()*7).toFixed(1),
+      Math.floor(1200+Math.random()*3200), +(35+Math.random()*55).toFixed(1),
+      'Automated sensory cycle measurement'
+    );
+
+    // Live hints wiring
+    liveFields.forEach(([id]) => {
+      const el = document.getElementById('input-' + id);
+      if (el) el.addEventListener('input', () => liveHint(id, parseFloat(el.value)));
+    });
+
+    // ---- Logs Table ----
+    let currentFilter = 'ALL';
+    function setFilter(f, el) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-tab').forEach(t => t.className = 'filter-tab');
+      const cls = {ALL:'active-all', NORMAL:'active-ok', WARNING:'active-warn', DANGER:'active-danger'}[f];
+      el.classList.add(cls);
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const tbody = document.getElementById('logs-body');
+      if (!tbody) return;
+      let logs = window.maintenanceStorage.getLogs();
+      if (currentFilter !== 'ALL') logs = logs.filter(l => l.status === currentFilter);
+
+      if (!logs.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--zinc-600);font-family:var(--font-mono);">No records for selected filter.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(l => {
+        const rowCls = l.status === 'DANGER' ? 'row-danger' : l.status === 'WARNING' ? 'row-warn' : '';
+        const bdgCls = l.status === 'DANGER' ? 'badge-danger' : l.status === 'WARNING' ? 'badge-warn' : 'badge-ok';
+        return `
+          <tr class="${rowCls}">
+            <td style="color:var(--zinc-500)">${l.timestamp}</td>
+            <td><span class="badge ${bdgCls}">${l.status}</span></td>
+            <td style="color:${l.temperature > 85 ? 'var(--status-danger)' : l.temperature > 65 ? 'var(--status-warn)' : 'var(--zinc-300)'}">${(+l.temperature).toFixed(1)}°C</td>
+            <td>${l.rpm}</td>
+            <td style="color:var(--zinc-400)">X:${l.vibX} / Y:${l.vibY} / <span style="color:${l.vibZ > 6.5 ? 'var(--status-danger)' : 'inherit'}">Z:${l.vibZ}</span></td>
+            <td style="color:${l.current > 28 ? 'var(--status-danger)' : l.current > 20 ? 'var(--status-warn)' : 'var(--zinc-300)'}">${(+l.current).toFixed(1)} A</td>
+            <td><button class="tbl-del" onclick="deleteLog('${l.id}')" title="Delete"><svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2'/></svg></button></td>
+          </tr>`;
+      }).join('');
+    }
+
+    function deleteLog(id) {
+      window.maintenanceStorage.deleteLog(id);
+      renderLogs(); updateKPIs(); chartManager.refresh(); refreshAlert();
+      showToast('Record Deleted', id, 'ok');
+    }
+
+    function updateKPIs() {
+      const logs = window.maintenanceStorage.getLogs();
+      const el = id => document.getElementById(id);
+      el('kpi-total').textContent = logs.length;
+      const dc = logs.filter(l => l.status === 'DANGER').length;
+      el('kpi-danger').textContent = dc;
+      el('kpi-danger').className = 'kpi-num ' + (dc > 0 ? '' : 'ok');
+      el('kpi-danger').style.color = dc > 0 ? 'var(--status-danger)' : 'var(--status-ok)';
+      if (logs.length) {
+        const avg = logs.reduce((s,l) => s + (+l.temperature), 0) / logs.length;
+        el('kpi-avg-temp').textContent = avg.toFixed(1) + '°C';
+      }
+    }
+
+    // ---- CSV Export ----
+    function exportCSV() {
+      const logs = window.maintenanceStorage.getLogs();
+      const rows = [['ID','Timestamp','Status','Temp_C','RPM','Vib_X','Vib_Y','Vib_Z','Current_A','Note']];
+      logs.forEach(l => rows.push([l.id,`"${l.timestamp}"`,l.status,l.temperature,l.rpm,l.vibX,l.vibY,l.vibZ,l.current,`"${l.note||''}"`]));
+      const uri = 'data:text/csv;charset=utf-8,' + encodeURI(rows.map(r => r.join(',')).join('\n'));
+      const a = Object.assign(document.createElement('a'), { href: uri, download: `pms_telemetry_${Date.now()}.csv` });
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast('Export Complete', 'CSV file downloaded.', 'ok');
+    }
+
+    // ---- Demo Reset ----
+    function resetDemo() {
+      if (confirm('Restore baseline demonstration dataset?')) {
+        window.maintenanceStorage.resetDefaultLogs();
+        renderLogs(); updateKPIs(); chartManager.refresh(); refreshAlert();
+        showToast('Dataset Restored', 'Demo data reloaded.', 'ok');
+      }
+    }
+
+    // ---- Toast ----
+    function showToast(title, msg, type = 'ok') {
+      const colors = {
+        ok:     { border:'var(--zinc-700)', icon:'✓',  iconColor:'var(--status-ok)' },
+        warn:   { border:'rgba(234,179,8,0.4)', icon:'⚡', iconColor:'var(--status-warn)' },
+        danger: { border:'rgba(239,68,68,0.5)', icon:'⚠', iconColor:'var(--status-danger)' }
+      };
+      const c = colors[type] || colors.ok;
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.style.borderColor = c.border;
+      t.innerHTML = `
+        <span style="color:${c.iconColor};font-size:1.1rem;flex-shrink:0">${c.icon}</span>
+        <div style="flex:1">
+          <div style="font-family:var(--font-sans);font-weight:600;font-size:0.82rem;color:var(--zinc-200)">${title}</div>
+          <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--zinc-500);margin-top:2px">${msg}</div>
+        </div>
+        <button style="background:none;border:none;cursor:pointer;color:var(--zinc-600);font-size:1rem;line-height:1" onclick="this.parentElement.remove()">✕</button>`;
+      document.getElementById('toast-container').appendChild(t);
+      setTimeout(() => { t.style.transition='opacity 0.3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 4000);
+    }
+
+    // ---- Audio Toggle ----
+    let audioMuted = false;
+    function toggleAudio() {
+      audioMuted = window.soundEngine?.toggleMute() ?? false;
+      const ico = document.getElementById('icon-audio');
+      if (audioMuted) {
+        ico.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
+      } else {
+        ico.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>`;
+        SFX.click();
+      }
+    }
+
+    // ---- Chart Manager ----
+    const chartManager = (() => {
+      let chart = null;
+      const init = () => {
+        const canvas = document.getElementById('telemetryChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const logs = [...window.maintenanceStorage.getLogs()].reverse();
+        const labels = logs.map(l => l.timestamp.split(' ')[1] || l.timestamp);
+
+        const mkGrad = (r,g,b) => {
+          const g1 = ctx.createLinearGradient(0,0,0,380);
+          g1.addColorStop(0, `rgba(${r},${g},${b},0.28)`);
+          g1.addColorStop(1, `rgba(${r},${g},${b},0.0)`);
+          return g1;
+        };
+
+        const chartData = {
+          labels,
+          datasets: [
+            {
+              label: 'Temperature (°C)',
+              data: logs.map(l => +l.temperature),
+              borderColor: '#ef4444', backgroundColor: mkGrad(239,68,68),
+              borderWidth: 2, pointRadius: 4, pointHoverRadius: 7,
+              pointBackgroundColor: '#ef4444', pointBorderColor: '#09090b', pointBorderWidth: 2,
+              tension: 0.35, fill: true, yAxisID: 'yLeft'
+            },
+            {
+              label: 'Vibration Max (mm/s)',
+              data: logs.map(l => Math.max(+l.vibX, +l.vibY, +l.vibZ)),
+              borderColor: '#c0c0c0', backgroundColor: mkGrad(192,192,192),
+              borderWidth: 2, pointRadius: 4, pointHoverRadius: 7,
+              pointBackgroundColor: '#c0c0c0', pointBorderColor: '#09090b', pointBorderWidth: 2,
+              tension: 0.35, fill: true, yAxisID: 'yLeft'
+            },
+            {
+              label: 'Current (A)',
+              data: logs.map(l => +l.current),
+              borderColor: '#eab308', backgroundColor: 'transparent',
+              borderWidth: 1.5, borderDash: [4,3],
+              pointRadius: 3, pointHoverRadius: 6,
+              pointBackgroundColor: '#eab308', pointBorderColor: '#09090b', pointBorderWidth: 2,
+              tension: 0.3, fill: false, yAxisID: 'yLeft'
+            },
+            {
+              label: 'RPM',
+              data: logs.map(l => +l.rpm),
+              borderColor: '#22c55e', backgroundColor: 'transparent',
+              borderWidth: 1.5, borderDash: [6,4],
+              pointRadius: 3, pointHoverRadius: 6,
+              pointBackgroundColor: '#22c55e', pointBorderColor: '#09090b', pointBorderWidth: 2,
+              tension: 0.25, fill: false, yAxisID: 'yRight'
+            }
+          ]
+        };
+
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: chartData,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            animation: { duration: 400 },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#18181b',
+                borderColor: '#3f3f46',
+                borderWidth: 1,
+                titleFont: { family: "'IBM Plex Mono'", size: 11, weight: '600' },
+                titleColor: '#a1a1aa',
+                bodyFont:  { family: "'IBM Plex Mono'", size: 12 },
+                bodyColor: '#f4f4f5',
+                padding: 12,
+                cornerRadius: 8,
+                boxPadding: 5
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255,255,255,0.04)', tickColor: 'transparent' },
+                ticks: { color: '#52525b', font: { family: "'IBM Plex Mono'", size: 10 }, maxRotation: 30 }
+              },
+              yLeft: {
+                position: 'left',
+                grid: { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#52525b', font: { family: "'IBM Plex Mono'", size: 10 } },
+                title: { display: true, text: 'mm/s · °C · A', color: '#52525b', font: { family: "'IBM Plex Mono'", size: 10 } }
+              },
+              yRight: {
+                position: 'right',
+                grid: { drawOnChartArea: false },
+                ticks: { color: '#22c55e', font: { family: "'IBM Plex Mono'", size: 10 } },
+                title: { display: true, text: 'RPM', color: '#22c55e', font: { family: "'IBM Plex Mono'", size: 10 } }
+              }
+            }
+          }
+        });
+      };
+
+      const refresh = () => {
+        if (!chart) { init(); return; }
+        const logs = [...window.maintenanceStorage.getLogs()].reverse();
+        chart.data.labels = logs.map(l => l.timestamp.split(' ')[1] || l.timestamp);
+        chart.data.datasets[0].data = logs.map(l => +l.temperature);
+        chart.data.datasets[1].data = logs.map(l => Math.max(+l.vibX, +l.vibY, +l.vibZ));
+        chart.data.datasets[2].data = logs.map(l => +l.current);
+        chart.data.datasets[3].data = logs.map(l => +l.rpm);
+        chart.update('active');
+      };
+
+      return { init, refresh, get: () => chart };
+    })();
+
+    function toggleDS(idx, el) {
+      const c = chartManager.get();
+      if (!c) return;
+      const vis = c.isDatasetVisible(idx);
+      c.setDatasetVisibility(idx, !vis);
+      c.update();
+      el.classList.toggle('muted', vis);
+    }
+
+    // ---- Fault Injection & HIL Controller ----
+    let activeFaultStates = {
+      thermalOverheat: false,
+      vibrationAnomaly: false,
+      overspeedOverload: false
+    };
+
+    function toggleFaultScenario(scenario, btnElement) {
+      SFX.click();
+      if (!window.physicsSimulator) return;
+
+      const isNowActive = window.physicsSimulator.toggleFault(scenario);
+      activeFaultStates[scenario] = isNowActive;
+
+      const dot = btnElement.querySelector('.status-dot');
+      const triggerText = btnElement.querySelector('.trigger-text');
+
+      if (isNowActive) {
+        btnElement.classList.add('border-red-500/80', 'bg-red-950/20');
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-red-500 animate-ping';
+        if (triggerText) {
+          triggerText.textContent = 'ACTIVE';
+          triggerText.className = 'text-xs font-mono text-red-400 font-bold';
+        }
+        showToast('Fault Scenario Injected', `${scenario.toUpperCase()} activated in simulation engine.`, 'danger');
+        SFX.danger();
+
+        // Immediately advance the simulation so readings reflect fault BEFORE telegram send
+        window.physicsSimulator.step(1.0);
+
+        // Send instant fault alert to Telegram (bypasses throttle)
+        if (window.telegramBotManager) {
+          window.telegramBotManager.sendFaultInjectionNotice(scenario, true);
+        }
+      } else {
+        btnElement.classList.remove('border-red-500/80', 'bg-red-950/20');
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+        if (triggerText) {
+          triggerText.textContent = 'INJECT';
+          triggerText.className = 'text-xs font-mono text-zinc-500';
+        }
+        showToast('Fault Deactivated', `${scenario} cleared. Stabilizing baseline...`, 'ok');
+        window.physicsSimulator.step(1.0);
+
+        // Notify Telegram fault was cleared
+        if (window.telegramBotManager) {
+          window.telegramBotManager.sendFaultInjectionNotice(scenario, false);
+        }
+      }
+    }
+
+    function resetFaultsAndRestore() {
+      SFX.click();
+      if (window.physicsSimulator) {
+        window.physicsSimulator.resetToNominal();
+      }
+      activeFaultStates = { thermalOverheat: false, vibrationAnomaly: false, overspeedOverload: false };
+      ['btn-fault-thermal', 'btn-fault-vib', 'btn-fault-rpm'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.classList.remove('border-red-500/80', 'bg-red-950/20');
+          const dot = btn.querySelector('.status-dot');
+          const txt = btn.querySelector('.trigger-text');
+          if (dot) dot.className = 'w-2 h-2 rounded-full bg-zinc-600';
+          if (txt) { txt.textContent = 'INJECT'; txt.className = 'text-xs font-mono text-zinc-500'; }
+        }
+      });
+      showToast('Simulation Restored', 'All sensory dynamics reset to nominal baseline.', 'ok');
+
+      // Notify Telegram all faults cleared
+      if (window.telegramBotManager) {
+        const text = '✅ <b>ALL FAULTS RESET TO NOMINAL</b>\n━━━━━━━━━━━━━━━━━━━━\n🟢 Simulation restored to baseline operating conditions.\n<i>All fault scenarios deactivated. Continuous nominal monitoring resumed.</i>';
+        window.telegramBotManager.sendMessage(text);
+      }
+    }
+
+
+
+
+    // ---- Data Source Switcher ----
+    function changeDataSource(newSource) {
+      if (window.dataIngestionLayer) {
+        window.dataIngestionLayer.setDataSource(newSource);
+      }
+      const streamLabel = document.getElementById('hil-stream-label');
+      if (streamLabel) {
+        if (newSource === 'SIMULATOR') streamLabel.textContent = 'STREAM: PHYSICS SIMULATOR';
+        else if (newSource === 'DATABASE') streamLabel.textContent = 'STREAM: DATABASE (SUPABASE/REST)';
+        else streamLabel.textContent = 'STREAM: PHYSICAL HARDWARE SENSORS';
+      }
+      showToast('Data Source Switched', `Active Telemetry Stream: ${newSource}`, 'ok');
+      SFX.click();
+    }
+
+    // ---- Live Telemetry HUD Updates ----
+    function updateDiagnosticHUD(reading) {
+      const diag = reading.diagnostics || (window.predictiveDiagnostics ? window.predictiveDiagnostics.analyze(reading) : null);
+      if (!diag) return;
+
+      // Machine Health Score
+      const healthEl = document.getElementById('hud-health-score');
+      const healthBadge = document.getElementById('hud-health-badge');
+      const healthBar = document.getElementById('hud-health-bar');
+      const degradePenalty = document.getElementById('hud-degrade-penalty');
+
+      if (healthEl) {
+        healthEl.textContent = `${diag.healthScore}%`;
+        healthEl.className = 'kpi-num ' + (diag.healthScore >= 80 ? 'ok' : diag.healthScore >= 50 ? 'warn' : '');
+        if (diag.healthScore < 50) healthEl.style.color = 'var(--status-danger)';
+        else healthEl.style.color = '';
+      }
+      if (healthBadge) {
+        healthBadge.textContent = diag.healthStatus;
+        healthBadge.className = 'badge ' + (diag.healthStatus === 'EXCELLENT' ? 'badge-ok' : diag.healthStatus === 'DEGRADED' ? 'badge-warn' : 'badge-danger');
+      }
+      if (healthBar) {
+        healthBar.style.width = `${diag.healthScore}%`;
+        healthBar.className = 'h-full rounded-full transition-all duration-500 ' + (diag.healthScore >= 80 ? 'bg-emerald-500' : diag.healthScore >= 50 ? 'bg-amber-500' : 'bg-red-500');
+      }
+      if (degradePenalty) {
+        degradePenalty.textContent = `${100 - diag.healthScore}% Penalty`;
+      }
+
+      // Remaining Useful Life (RUL)
+      const rulEl = document.getElementById('hud-rul-val');
+      const rulHoursEl = document.getElementById('hud-rul-hours');
+      if (rulEl) {
+        rulEl.innerHTML = `${diag.rulDays} <span class="text-sm font-sans font-normal text-zinc-400">Days</span>`;
+      }
+      if (rulHoursEl) {
+        rulHoursEl.textContent = diag.rulHours.toLocaleString();
+      }
+
+      // Anomaly Confidence Score
+      const confEl = document.getElementById('hud-confidence-score');
+      const confBadge = document.getElementById('hud-anomaly-badge');
+      const anomalyTypeEl = document.getElementById('hud-anomaly-type');
+      if (confEl) confEl.textContent = `${diag.confidenceScore}%`;
+      if (confBadge) {
+        confBadge.textContent = diag.isAnomalyDetected ? 'ANOMALY DETECTED' : 'NOMINAL';
+        confBadge.className = 'badge ' + (diag.isAnomalyDetected ? 'badge-danger' : 'badge-ok');
+      }
+      if (anomalyTypeEl) {
+        anomalyTypeEl.textContent = `Pattern: ${diag.anomalyTypes.join(', ')}`;
+      }
+
+      // ISO 10816-3 Zone
+      const isoZoneEl = document.getElementById('hud-iso-zone');
+      const rmsVibEl = document.getElementById('hud-rms-vib');
+      if (isoZoneEl) {
+        isoZoneEl.textContent = diag.isoZone;
+        isoZoneEl.className = 'text-lg font-mono font-bold ' + (diag.isoClass === 'ok' ? 'text-emerald-400' : diag.isoClass === 'warn' ? 'text-amber-400' : 'text-red-400');
+      }
+      if (rmsVibEl) {
+        rmsVibEl.textContent = diag.rmsVib;
+      }
+
+      // Synchronize Overview page top alert banner with live telemetry
+      refreshAlert(reading);
+
+      // Sync form input fields when on Page 2 if in Simulator stream
+      if (currentPage === 'page-2') {
+        const inpCur = document.getElementById('input-current');
+        const inpRpm = document.getElementById('input-rpm');
+        const inpVx  = document.getElementById('input-vib-x');
+        const inpVy  = document.getElementById('input-vib-y');
+        const inpVz  = document.getElementById('input-vib-z');
+        const inpTmp = document.getElementById('input-temp');
+        if (inpCur && !document.activeElement.id.startsWith('input-')) {
+          inpCur.value = reading.current;
+          inpRpm.value = reading.rpm;
+          inpVx.value  = reading.vibX;
+          inpVy.value  = reading.vibY;
+          inpVz.value  = reading.vibZ;
+          inpTmp.value = reading.temperature;
+          liveFields.forEach(([id]) => liveHint(id, parseFloat(document.getElementById('input-' + id)?.value)));
+        }
+      }
+    }
+
+    // ---- Export Comprehensive Technical Diagnostics Report (Print/PDF) ----
+    function exportDiagnosticReportPDF() {
+      SFX.click();
+      const logs = window.maintenanceStorage.getLogs();
+      const latest = logs[0] || (window.physicsSimulator ? window.physicsSimulator.getSnapshot() : {});
+      const diag = window.predictiveDiagnostics ? window.predictiveDiagnostics.analyze(latest) : { healthScore: 95, rulDays: 750, rulHours: 18000, confidenceScore: 99.4, isoZone: 'Zone A', rmsVib: '1.92', healthStatus: 'EXCELLENT' };
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Popup Blocked', 'Please allow popups to open the diagnostic report.', 'warn');
+        return;
+      }
+
+      const healthColor = diag.healthScore >= 80 ? '#15803d' : diag.healthScore >= 50 ? '#b45309' : '#b91c1c';
+      const assessment = diag.healthScore >= 80
+        ? 'Machinery operational integrity is excellent. All vibrational resonances conform to ISO 10816-3 Zone A/B tolerances.'
+        : 'Degradation pattern identified requiring scheduled inspection and lubrication. Maintain continuous telemetry surveillance.';
+
+      const tableRows = logs.slice(0, 10).map(function(l) {
+        const bc = l.status === 'DANGER' ? 'badge-danger' : l.status === 'WARNING' ? 'badge-warn' : 'badge-ok';
+        return '<tr><td>' + l.timestamp + '</td><td><span class="badge ' + bc + '">' + l.status + '</span></td>'
+          + '<td>' + parseFloat(l.temperature).toFixed(1) + '&deg;C</td>'
+          + '<td>' + l.rpm + ' RPM</td>'
+          + '<td>' + l.vibX + ' / ' + l.vibY + ' / ' + l.vibZ + ' mm/s</td>'
+          + '<td>' + parseFloat(l.current).toFixed(1) + ' A</td>'
+          + '<td>' + (l.note || 'Nominal cycle') + '</td></tr>';
+      }).join('');
+
+      const css = 'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:30px;color:#111;line-height:1.5}'
+        + '.hdr{border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}'
+        + 'h1{margin:0;font-size:24px;text-transform:uppercase;letter-spacing:.5px}'
+        + '.meta{font-family:monospace;font-size:13px;color:#555}'
+        + '.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:25px 0}'
+        + '.kpi-box{border:1px solid #ddd;padding:12px;border-radius:6px;background:#fafafa}'
+        + '.kpi-title{font-size:11px;text-transform:uppercase;color:#666;font-weight:600}'
+        + '.kpi-val{font-size:22px;font-weight:bold;font-family:monospace;margin-top:4px}'
+        + '.sec{font-size:16px;border-bottom:1px solid #ccc;padding-bottom:6px;margin:25px 0 12px;font-weight:700}'
+        + 'table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;font-family:monospace}'
+        + 'th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f2f2f2;font-weight:600}'
+        + '.badge{padding:3px 6px;border-radius:4px;font-size:10px;font-weight:bold}'
+        + '.badge-ok{background:#dcfce7;color:#166534}.badge-warn{background:#fef9c3;color:#854d0e}.badge-danger{background:#fee2e2;color:#991b1b}'
+        + '.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:10px;font-size:11px;color:#888;text-align:center}'
+        + '@media print{body{margin:15px}button{display:none}}';
+
+      // Build the report string using array join to avoid any literal closing tags that break the parent parser
+      const doc = [
+        '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">',
+        '<title>PMS - Machinery Diagnostics Report</title>',
+        '<style>' + css + '<\/style>',
+        '</head><body>',
+        '<div class="hdr"><div>',
+        '<h1>Autonomous Heavy Machinery Diagnostics Report</h1>',
+        '<div class="meta" style="margin-top:4px">Predictive Maintenance Telemetry &amp; Prognostics Verification</div>',
+        '</div><div class="meta" style="text-align:right">',
+        '<div>Generated: ' + new Date().toLocaleString() + '</div>',
+        '<div>Asset ID: ROTATING-UNIT-#402</div>',
+        '</div></div>',
+        '<div class="kpi-row">',
+        '<div class="kpi-box"><div class="kpi-title">Machine Health Index</div><div class="kpi-val" style="color:' + healthColor + '">' + diag.healthScore + '%</div><div class="meta">Status: ' + (diag.healthStatus || 'N/A') + '</div></div>',
+        '<div class="kpi-box"><div class="kpi-title">Remaining Useful Life (RUL)</div><div class="kpi-val">' + diag.rulDays + ' Days</div><div class="meta">~' + (diag.rulHours || 0).toLocaleString() + ' Operating Hours</div></div>',
+        '<div class="kpi-box"><div class="kpi-title">Anomaly Detection Confidence</div><div class="kpi-val">' + diag.confidenceScore + '%</div><div class="meta">Multi-sensor cross check</div></div>',
+        '<div class="kpi-box"><div class="kpi-title">ISO 10816-3 Severity</div><div class="kpi-val" style="font-size:17px">' + diag.isoZone + '</div><div class="meta">RMS Vib: ' + diag.rmsVib + ' mm/s</div></div>',
+        '</div>',
+        '<div class="sec">Executive Prognostic Assessment</div>',
+        '<p style="font-size:13px;color:#333">Multi-sensor predictive analysis executed across temperature, rotational velocity, 3-axis vibration spectra, and electrical current loading. ' + assessment + '</p>',
+        '<div class="sec">Historical Telemetry Ingestion Log (Last 10 Records)</div>',
+        '<table><thead><tr><th>Timestamp</th><th>Status</th><th>Temp</th><th>Shaft RPM</th><th>Vibration (X/Y/Z)</th><th>Current (A)</th><th>Diagnostic Notes</th></tr></thead>',
+        '<tbody>' + (tableRows || '<tr><td colspan="7" style="text-align:center;color:#999">No records available</td></tr>') + '</tbody></table>',
+        '<div class="footer">Predictive Maintenance System &middot; Autonomous Telemetry &amp; Diagnostics Web Platform &middot; Hardware-in-the-Loop Architecture</div>',
+        '</body></html>'
+      ].join('');
+
+      printWindow.document.open();
+      printWindow.document.write(doc);
+      printWindow.document.close();
+      showToast('Report Ready', 'Diagnostic summary generated for print/export.', 'ok');
+    }
+
+    // ---- Init ----
+
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshAlert();
+      renderLogs();
+      updateKPIs();
+
+      // Init live hints
+      liveFields.forEach(([id]) => {
+        const el = document.getElementById('input-' + id);
+        if (el) liveHint(id, parseFloat(el.value));
+      });
+
+      // Subscribe to HIL Data Ingestion Layer
+      if (window.dataIngestionLayer) {
+        window.dataIngestionLayer.subscribe(incomingReading => {
+          updateDiagnosticHUD(incomingReading);
+
+          // If anomaly or critical threshold breach occurs automatically in simulation, log and notify
+          const evalRes = window.maintenanceStorage ? window.maintenanceStorage.evaluateStatus(incomingReading) : { level: 'NORMAL' };
+          if (evalRes.level === 'DANGER') {
+            refreshAlert();
+          }
+        });
+      }
+
+      // Initial HUD evaluation
+      const initialLogs = window.maintenanceStorage.getLogs();
+      if (initialLogs.length > 0) {
+        updateDiagnosticHUD(initialLogs[0]);
+      }
+
+      // Chart init on first visit
+      const p3 = document.getElementById('page-3');
+      const obs = new MutationObserver(() => {
+        if (p3.classList.contains('active')) {
+          setTimeout(() => chartManager.init(), 30);
+          obs.disconnect();
+        }
+      });
+      obs.observe(p3, { attributes: true });
+    });
+  </script>
+
+</body>
+</html>
