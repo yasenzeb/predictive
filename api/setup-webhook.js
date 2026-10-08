@@ -6,7 +6,7 @@
  * https://your-project.vercel.app/api/setup-webhook
  */
 
-const BOT_TOKEN = '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 const PROD_URL   = 'https://predictive-delta.vercel.app';
 
 export default async function handler(req, res) {
