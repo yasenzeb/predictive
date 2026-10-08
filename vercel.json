@@ -4,5 +4,11 @@
       "path": "/api/cron-telemetry",
       "schedule": "* * * * *"
     }
+  ],
+  "rewrites": [
+    { "source": "/api/cron-telemetry", "destination": "/api/cron-telemetry.js" },
+    { "source": "/api/telegram-broadcast", "destination": "/api/telegram-broadcast.js" },
+    { "source": "/api/setup-webhook", "destination": "/api/setup-webhook.js" },
+    { "source": "/api/telegram", "destination": "/api/telegram.js" }
   ]
 }
