@@ -82,7 +82,7 @@ class TelegramBotManager {
   /* ── Server Broadcast API invocation ─────────────────────── */
   async _broadcastToServer(reading, faultType, isCleared = false) {
     try {
-      await fetch('/api/telegram-broadcast', {
+      await fetch('/api/broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reading, faultType, isCleared })
