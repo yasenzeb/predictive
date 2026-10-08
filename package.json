@@ -5,6 +5,7 @@
   "main": "index.html",
   "type": "module",
   "scripts": {
+    "build": "echo 'PMS Serverless Functions Build Complete'",
     "start": "npx serve .",
     "dev": "npx serve ."
   },
