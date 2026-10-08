@@ -6,11 +6,11 @@
  * Sends the Telegram alert directly from Vercel server to TELEGRAM_CHAT_ID.
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
-const CHAT_ID   = process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID || '8984846317';
-const API_URL   = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
 export default async function handler(req, res) {
+  const botToken = (process && process.env && (process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN)) || '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
+  const chatId   = (process && process.env && (process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID)) || '8984846317';
+  const apiUrl   = `https://api.telegram.org/bot${botToken}`;
+
   if (req.method !== 'POST') {
     return res.status(200).json({ ok: true, message: 'Server-side Telegram Broadcast API' });
   }
@@ -55,11 +55,11 @@ export default async function handler(req, res) {
       ]]
     };
 
-    const telegramRes = await fetch(`${API_URL}/sendMessage`, {
+    const telegramRes = await fetch(`${apiUrl}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHAT_ID,
+        chat_id: chatId,
         text,
         parse_mode: 'HTML',
         reply_markup: keyboard
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
     });
 
     const result = await telegramRes.json();
-    return res.status(200).json({ ok: true, recipient: CHAT_ID, telegram_response: result });
+    return res.status(200).json({ ok: true, recipient: chatId, telegram_response: result });
   } catch (err) {
     console.error('[Broadcast API] Error:', err);
     return res.status(500).json({ ok: false, error: err.message });

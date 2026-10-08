@@ -1,17 +1,12 @@
 /**
  * Vercel Serverless Cron Telemetry & Automated Emergency Alert Engine
- * Path: /api/cron-telemetry (v2.1)
+ * Path: /api/cron-telemetry
  *
  * Runs background machinery telemetry monitoring server-side on Vercel.
  * Simulates rotating machinery dynamics, computes ISO 10816-3 severity, RUL estimation,
  * and automatically dispatches Telegram Emergency Alerts whenever thresholds are breached!
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
-const CHAT_ID   = process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID || '8984846317';
-const API_URL   = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
-// Server-side Physics & Diagnostic calculation helpers
 function gaussianNoise(mean = 0, stdDev = 1) {
   let u1 = Math.random();
   let u2 = Math.random();
@@ -51,7 +46,8 @@ function evaluateDiagnostics(reading) {
   return { healthScore, maxVib, rmsVib, isoZone, rulDays, totalPenalty };
 }
 
-async function sendTelegramAlert(reading, diag, reason) {
+async function sendTelegramAlert(botToken, chatId, reading, diag, reason) {
+  const apiUrl = `https://api.telegram.org/bot${botToken}`;
   const text = `
 🚨 <b>CRITICAL INDUSTRIAL HAZARD DETECTED</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -77,11 +73,11 @@ async function sendTelegramAlert(reading, diag, reason) {
   };
 
   try {
-    const res = await fetch(`${API_URL}/sendMessage`, {
+    const res = await fetch(`${apiUrl}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: CHAT_ID,
+        chat_id: chatId,
         text,
         parse_mode: 'HTML',
         reply_markup: keyboard
@@ -95,6 +91,9 @@ async function sendTelegramAlert(reading, diag, reason) {
 }
 
 export default async function handler(req, res) {
+  const botToken = (process && process.env && (process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN)) || '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
+  const chatId   = (process && process.env && (process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID)) || '8984846317';
+
   // Generate authentic telemetry tick server-side
   const rpm = 1800 + Math.round(gaussianNoise(0, 15));
   const current = parseFloat((14.0 + gaussianNoise(0, 0.4)).toFixed(1));
@@ -115,14 +114,14 @@ export default async function handler(req, res) {
   else if (current > 28.0) { alertReason = 'Kinematic Current Overload (>28A)'; }
 
   if (alertReason) {
-    await sendTelegramAlert(reading, diag, alertReason);
+    await sendTelegramAlert(botToken, chatId, reading, diag, alertReason);
     alertSent = true;
   }
 
   return res.status(200).json({
     ok: true,
     server_time: timestamp,
-    configured_chat_id: CHAT_ID,
+    configured_chat_id: chatId,
     telemetry: reading,
     diagnostics: diag,
     hazard_alert_triggered: alertSent,
