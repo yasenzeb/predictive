@@ -237,10 +237,13 @@ ${emoji} <b>Machine Health Score:</b> <b>${diag.health}%</b>
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN
-    || '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
-  const CHAT_ID   = process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID
-    || '8984846317';
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
+  const CHAT_ID   = process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID;
+
+  if (!BOT_TOKEN) {
+    return res.status(500).json({ ok: false, error: 'Telegram bot token is not configured in environment variables.' });
+  }
+
   const API_URL   = buildApiUrl(BOT_TOKEN);
 
   // ── GET: health check
@@ -250,6 +253,9 @@ export default async function handler(req, res) {
 
   // ── POST ?action=broadcast: server-side alert from browser fault injection
   if (req.query && req.query.action === 'broadcast') {
+    if (!CHAT_ID) {
+        return res.status(500).json({ ok: false, error: 'Target chat ID is not configured for broadcasts.' });
+    }
     try {
       await broadcastAlert(API_URL, CHAT_ID, req.body);
       return res.status(200).json({ ok: true, dispatched: true, recipient: CHAT_ID });
@@ -262,19 +268,24 @@ export default async function handler(req, res) {
   try {
     const update = req.body;
 
+    // يرد على المرسل بناء على الشات ايدي الخاص به
     if (update.message && update.message.text) {
       const text   = update.message.text.trim();
-      const chatId = update.message.chat.id;
-      if (text.startsWith('/start'))        await cmdStart(API_URL, chatId);
-      else if (text.startsWith('/status'))  await cmdStatus(API_URL, chatId);
-      else if (text.startsWith('/report'))  await cmdReport(API_URL, chatId);
+      const senderChatId = update.message.chat.id; // يرد على الشخص اللي بعت الرسالة
+      
+      if (text.startsWith('/start'))        await cmdStart(API_URL, senderChatId);
+      else if (text.startsWith('/status'))  await cmdStatus(API_URL, senderChatId);
+      else if (text.startsWith('/report'))  await cmdReport(API_URL, senderChatId);
     }
 
     if (update.callback_query) {
       const cb     = update.callback_query.data;
-      const chatId = update.callback_query.message?.chat.id || CHAT_ID;
-      if (cb === 'cmd_status')      await cmdStatus(API_URL, chatId);
-      else if (cb === 'cmd_report') await cmdReport(API_URL, chatId);
+      const senderChatId = update.callback_query.message?.chat.id;
+      
+      if (senderChatId) {
+          if (cb === 'cmd_status')      await cmdStatus(API_URL, senderChatId);
+          else if (cb === 'cmd_report') await cmdReport(API_URL, senderChatId);
+      }
       await ackCallback(API_URL, update.callback_query.id);
     }
 

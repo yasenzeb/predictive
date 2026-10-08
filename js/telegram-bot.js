@@ -7,8 +7,8 @@
 
 class TelegramBotManager {
   constructor() {
-    this.botToken = '8664722270:AAE7OJYP7Jwn1rV_B0Ty0oHm6RRi-PQZYy4';
-    this.chatId   = '8984846317';
+    
+    
     this.apiUrl   = `https://api.telegram.org/bot${this.botToken}`;
 
     this.isPolling        = false;
@@ -331,3 +331,4 @@ Physics-based telemetry simulation with:
 
 window.TelegramBotManager = TelegramBotManager;
 window.telegramBotManager = new TelegramBotManager();
+
