@@ -1,17 +1,14 @@
 /**
  * Vercel Serverless Function: Telegram Bot Webhook Handler
- * Path: /api/telegram  (the ONLY endpoint that matters — webhook + broadcast combined)
- *
- * Architecture:
- * 1. GET  /api/telegram           → webhook health check
- * 2. POST /api/telegram (from Telegram) → handles /start /status /report + inline buttons
- * 3. POST /api/telegram?action=broadcast → called by browser fault injection to send
- *         emergency alerts from Vercel Server so they reach the owner even with no browser open
- *
- * Physics engine runs server-side on every /status command — real computed data, not static text.
+ * Path: /api/telegram
  */
 
-// ─── Server-side Physics Simulation (Box-Muller Gaussian + thermal/vibration dynamics) ───
+// --- Global Memory (Hot Cache) ---
+// Vercel keeps functions warm. We can cache the fault state here.
+let activeFaultCache = null;
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
+// ─── Server-side Physics Simulation (Box-Muller Gaussian + dynamics) ───
 function gaussNoise(mean = 0, std = 1) {
   let u1, u2;
   do { u1 = Math.random(); } while (u1 === 0);
@@ -122,11 +119,18 @@ Server-side telemetry engine features:
 }
 
 function cmdStatus(apiUrl, chatId) {
-  // Run full server-side physics tick — real computed values every time
-  const r    = serverTelemetryTick();
-  const diag = serverDiagnostics(r);
-  const emoji = healthEmoji(diag.health);
+  let r, diag;
+  // Use active fault cache if it exists and is fresh
+  if (activeFaultCache && (Date.now() - activeFaultCache.time < CACHE_TTL)) {
+    r = activeFaultCache.reading;
+    diag = serverDiagnostics(r);
+    diag.anomalies.push(`(${activeFaultCache.faultType})`);
+  } else {
+    r = serverTelemetryTick();
+    diag = serverDiagnostics(r);
+  }
 
+  const emoji = healthEmoji(diag.health);
   const isAlert = diag.health < 60 || diag.maxVib > 4.5 || r.temperature > 70 || r.current > 22;
   const statusLine = isAlert ? '🔴 <b>HAZARD DETECTED — Thresholds Breached</b>' : '🟢 <b>All Parameters Within Safe Operating Range</b>';
 
@@ -157,10 +161,17 @@ ${emoji} <b>Machine Health Index:</b> <b>${diag.health}%</b>
 }
 
 function cmdReport(apiUrl, chatId) {
-  const r    = serverTelemetryTick();
-  const diag = serverDiagnostics(r);
-  const emoji = healthEmoji(diag.health);
+  let r, diag;
+  if (activeFaultCache && (Date.now() - activeFaultCache.time < CACHE_TTL)) {
+    r = activeFaultCache.reading;
+    diag = serverDiagnostics(r);
+    diag.anomalies.push(`(${activeFaultCache.faultType})`);
+  } else {
+    r = serverTelemetryTick();
+    diag = serverDiagnostics(r);
+  }
 
+  const emoji = healthEmoji(diag.health);
   const rec = diag.health < 50
     ? '🚨 <b>CRITICAL:</b> Immediate bearing inspection, lubrication &amp; drive shaft alignment required.'
     : diag.health < 75
@@ -192,7 +203,7 @@ ${rec}
   });
 }
 
-// ─── Emergency Alert (called from browser via POST /api/telegram?action=broadcast) ──
+// ─── Emergency Alert ─────────────────────────────────────────────────────────
 async function broadcastAlert(apiUrl, chatId, body) {
   const { reading, faultType, isCleared } = body || {};
 
@@ -205,7 +216,6 @@ async function broadcastAlert(apiUrl, chatId, body) {
 <i>Automated monitoring resumed. Continue scheduled inspection cycle.</i>`.trim());
   }
 
-  // Build alert from browser-provided reading or generate server-side
   const r    = reading || serverTelemetryTick();
   const diag = serverDiagnostics(r);
   const emoji = healthEmoji(diag.health);
@@ -227,7 +237,6 @@ ${emoji} <b>Machine Health Score:</b> <b>${diag.health}%</b>
 • ⚡ Current Load: <code>${r.current} A</code>  [Limit: 28A]
 • ⚙️ Shaft Speed: <code>${r.rpm} RPM</code>
 
-🔗 https://predictive-delta.vercel.app/
 🔴 <i>Automated preventive protocol dispatched from Vercel Server.</i>`.trim(), {
     inline_keyboard: [[
       { text: '📊 Open Dashboard', url: 'https://predictive-delta.vercel.app/' }
@@ -241,7 +250,7 @@ export default async function handler(req, res) {
   const CHAT_ID   = process.env.TELEGRAM_CHAT_ID || process.env.CHAT_ID;
 
   if (!BOT_TOKEN) {
-    return res.status(500).json({ ok: false, error: 'Telegram bot token is not configured in environment variables.' });
+    return res.status(500).json({ ok: false, error: 'Telegram bot token is not configured.' });
   }
 
   const API_URL   = buildApiUrl(BOT_TOKEN);
@@ -251,10 +260,19 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, message: 'PMS Telegram Webhook Active', ts: new Date().toISOString() });
   }
 
-  // ── POST ?action=broadcast: server-side alert from browser fault injection
+  // ── POST ?action=broadcast
   if (req.query && req.query.action === 'broadcast') {
+    const { reading, faultType, isCleared } = req.body || {};
+    
+    // CACHE THE FAULT STATE IN VERCEL MEMORY
+    if (isCleared) {
+      activeFaultCache = null;
+    } else if (reading && faultType) {
+      activeFaultCache = { reading, faultType, time: Date.now() };
+    }
+
     if (!CHAT_ID) {
-        return res.status(500).json({ ok: false, error: 'Target chat ID is not configured for broadcasts.' });
+        return res.status(500).json({ ok: false, error: 'Target chat ID is not configured.' });
     }
     try {
       await broadcastAlert(API_URL, CHAT_ID, req.body);
@@ -268,10 +286,9 @@ export default async function handler(req, res) {
   try {
     const update = req.body;
 
-    // يرد على المرسل بناء على الشات ايدي الخاص به
     if (update.message && update.message.text) {
       const text   = update.message.text.trim();
-      const senderChatId = update.message.chat.id; // يرد على الشخص اللي بعت الرسالة
+      const senderChatId = update.message.chat.id; 
       
       if (text.startsWith('/start'))        await cmdStart(API_URL, senderChatId);
       else if (text.startsWith('/status'))  await cmdStatus(API_URL, senderChatId);
